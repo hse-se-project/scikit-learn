@@ -520,3 +520,42 @@ class SpectralEmbedding(BaseEstimator):
         """
         self.fit(X)
         return self.embedding_
+    
+    def transform(self, X):
+        """
+        Transform new points into embedding space.
+
+        Parameters
+        ----------
+        X : array-like, shape = [n_samples, n_features]
+
+        Returns
+        -------
+        X_new : array, shape = [n_samples, n_components]
+
+        Notes
+        -----
+        Pa
+        """
+        X = check_array(X)
+
+        old_data_n_samples = self.empirical_data.shape[0]
+        new_data_n_samples = X.shape[0]
+        K = kneighbors_graph(np.concatenate((self.empirical_data, X)), self.n_neighbors_,
+                                                         include_self=True,
+                                                         n_jobs=self.n_jobs)
+        # currently only symmetric affinity_matrix supported
+        K = ((K + K.T) * 0.5)
+        K = K[:old_data_n_samples, :]
+        e_over_K = np.asarray(K.mean(axis=0))[0]
+        sne_over_K = np.sqrt(e_over_K[old_data_n_samples:])
+        e_over_K = np.diag(1/np.sqrt(e_over_K[:old_data_n_samples]))
+        K = K[:, old_data_n_samples:].toarray()
+        X_new = np.zeros((new_data_n_samples, self.n_components))
+        for i in range(new_data_n_samples):
+            K[:,i] = np.dot(e_over_K, K[:,i])
+        X_new = np.dot(np.transpose(K), self.embedding_) / old_data_n_samples
+        for k in range(self.n_components):
+            X_new[:,k] /= sne_over_K \
+                         #* self.eigenvalues[k] #Was the paper author wrong?
+        return X_new
