@@ -502,7 +502,7 @@ class SpectralEmbedding(BaseEstimator):
 
         affinity_matrix = self._get_affinity_matrix(X)
         (self.embedding_,
-         self._dd) = spectral_embedding(affinity_matrix,
+         self._affinity_sum) = spectral_embedding(affinity_matrix,
                                         n_components=self.n_components,
                                         eigen_solver=self.eigen_solver,
                                         random_state=random_state,
@@ -546,25 +546,28 @@ class SpectralEmbedding(BaseEstimator):
         X = check_array(X)
 
         if (self.affinity == "nearest_neighbors"):
-            d = pairwise_distances(X, self.training_data_, n_jobs=self.n_jobs,
-                                   metric="euclidean")
-            d[(d == 0)] = np.inf
-            M = np.zeros(d.shape)
-            kneighbors = np.argpartition(d, self.n_neighbors - 2,
+            cross_distances = pairwise_distances(X, self.training_data_,
+                                                 n_jobs=self.n_jobs,
+                                                 metric="euclidean")
+            cross_distances[(cross_distances == 0)] = np.inf
+            affinity_matrix = np.zeros(d.shape)
+            kneighbors = np.argpartition(cross_distances,
+                                         self.n_neighbors - 2,
                                          axis=1)[:, :self.n_neighbors - 1]
             for i in range(M.shape[0]):
-                M[i, kneighbors[i]] += 0.5
-            kth_d = np.partition(pairwise_distances(self.training_data_,
+                affinity_matrix[i, kneighbors[i]] += 0.5
+            kth_distance = np.partition(pairwise_distances(self.training_data_,
                                                     n_jobs=self.n_jobs,
                                                     metric="euclidean"),
                                  self.n_neighbors - 1,
                                  axis=0)[self.n_neighbors - 1]
-            for i in range(M.shape[1]):
-                M[(d[:, i] <= kth_d[i]), i] += 0.5
+            for i in range(affinity_matrix.shape[1]):
+                affinity_matrix[(cross_distances[:, i] <=
+                                 kth_distance[i]), i] += 0.5
         else:
             raise NotImplementedError(("%s is not supported. Expected "
                                       "'nearest_neighbors' affinity."
                                        ) % self.affinity)
 
-        M /= self._dd * self._dd
-        return np.matmul(M, self.embedding_)
+        affinity_matrix /= self._affinity_sum * self._affinity_sum
+        return np.matmul(affinity_matrix, self.embedding_)
