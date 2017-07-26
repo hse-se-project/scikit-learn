@@ -550,11 +550,11 @@ class SpectralEmbedding(BaseEstimator):
                                                  n_jobs=self.n_jobs,
                                                  metric="euclidean")
             cross_distances[(cross_distances == 0)] = np.inf
-            affinity_matrix = np.zeros(d.shape)
+            affinity_matrix = np.zeros(cross_distances.shape)
             kneighbors = np.argpartition(cross_distances,
                                          self.n_neighbors - 2,
                                          axis=1)[:, :self.n_neighbors - 1]
-            for i in range(M.shape[0]):
+            for i in range(affinity_matrix.shape[0]):
                 affinity_matrix[i, kneighbors[i]] += 0.5
             kth_distance = np.partition(pairwise_distances(self.training_data_,
                                                     n_jobs=self.n_jobs,
